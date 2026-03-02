@@ -2,48 +2,59 @@ import { create } from "xmlbuilder2";
 
 export const handler = async () => {
   try {
-    const apiUrl = "https://api.twitch.tv/helix/drops/campaigns?status=active";
+    // Specific games you want to track
+    const gameIds = [
+      "497057",      // Destiny 2
+      "515025",      // Overwatch 2
+      "2125397111",  // Marvel Rivals
+      "32399",       // Counter-Strike 2
+      "323583"       // Marathon
+    ];
 
-    const response = await fetch(apiUrl, {
-      headers: {
-        "Client-ID": process.env.TWITCH_CLIENT_ID || "",
-        "Authorization": `Bearer ${process.env.TWITCH_OAUTH_TOKEN || ""}`
+    let allCampaigns = [];
+
+    // Fetch campaigns for each game
+    for (const gameId of gameIds) {
+      const url = `https://api.twitch.tv/helix/drops/campaigns?game_id=${gameId}`;
+
+      const response = await fetch(url, {
+        headers: {
+          "Client-ID": process.env.TWITCH_CLIENT_ID,
+          "Authorization": `Bearer ${process.env.TWITCH_OAUTH_TOKEN}`
+        }
+      });
+
+      if (!response.ok) {
+        console.error(`Twitch API error for game ${gameId}:`, await response.text());
+        continue;
       }
-    });
 
-    if (!response.ok) {
-      throw new Error(`Twitch API error: ${response.status}`);
+      const data = await response.json();
+
+      if (data.data && Array.isArray(data.data)) {
+        allCampaigns = allCampaigns.concat(data.data);
+      }
     }
 
-    const data = await response.json();
+    // Build RSS XML
+    const feed = {
+      rss: {
+        "@version": "2.0",
+        channel: {
+          title: "Active Twitch Drops (Specific Games)",
+          link: "https://www.twitch.tv/drops",
+          description: "Live Twitch Drops campaigns for selected games.",
+          item: allCampaigns.map((campaign) => ({
+            title: campaign.name || "Unnamed Campaign",
+            description: campaign.description || "No description available.",
+            link: campaign.details_url || "https://www.twitch.tv/drops",
+            pubDate: campaign.start_at || new Date().toUTCString()
+          }))
+        }
+      }
+    };
 
-    const items = (data.data || []).map(campaign => {
-      const title = campaign.name || "Twitch Drop";
-      const description = campaign.description || "Active Twitch Drop Campaign";
-      const link = campaign.details_url || "https://www.twitch.tv/drops";
-      const pubDate = new Date(campaign.start_at).toUTCString();
-
-      return { title, description, link, pubDate };
-    });
-
-    const rss = create({ version: "1.0", encoding: "UTF-8" })
-      .ele("rss", { version: "2.0" })
-      .ele("channel")
-      .ele("title").txt("Active Twitch Drops Feed").up()
-      .ele("link").txt("https://www.twitch.tv/drops").up()
-      .ele("description").txt("Auto-updating feed of active Twitch Drops").up()
-      .ele("language").txt("en-us").up();
-
-    items.forEach(item => {
-      rss.ele("item")
-        .ele("title").txt(item.title).up()
-        .ele("description").txt(item.description).up()
-        .ele("link").txt(item.link).up()
-        .ele("pubDate").txt(item.pubDate).up()
-        .up();
-    });
-
-    const xml = rss.end({ prettyPrint: true });
+    const xml = create(feed).end({ prettyPrint: true });
 
     return {
       statusCode: 200,
@@ -52,6 +63,7 @@ export const handler = async () => {
     };
 
   } catch (error) {
+    console.error("Feed generation error:", error);
     return {
       statusCode: 500,
       body: `Error generating feed: ${error.message}`
