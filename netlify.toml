@@ -1,7 +1,0 @@
-[build]
-  functions = "functions"
-  publish = "."
-
-[[scheduled]]
-  command = "curl -s https://active-twitch-drops.netlify.app/.netlify/functions/feed > /dev/null"
-  cron = "0 * * * *"
