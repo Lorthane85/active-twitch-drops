@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 import { create } from "xmlbuilder2";
 
 export const handler = async () => {
@@ -24,12 +23,7 @@ export const handler = async () => {
       const link = campaign.details_url || "https://www.twitch.tv/drops";
       const pubDate = new Date(campaign.start_at).toUTCString();
 
-      return {
-        title,
-        description,
-        link,
-        pubDate
-      };
+      return { title, description, link, pubDate };
     });
 
     const rss = create({ version: "1.0", encoding: "UTF-8" })
