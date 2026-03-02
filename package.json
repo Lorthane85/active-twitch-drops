@@ -1,0 +1,8 @@
+{
+  "name": "active-twitch-drops",
+  "version": "1.0.0",
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "xmlbuilder2": "^3.0.2"
+  }
+}
