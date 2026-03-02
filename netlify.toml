@@ -1,0 +1,7 @@
+[build]
+  functions = "functions"
+  publish = "."
+
+[[scheduled]]
+  command = "curl -s https://singular-taffy-11d4e0.netlify.app/.netlify/functions/feed > /dev/null"
+  cron = "0 * * * *"
