@@ -2,50 +2,43 @@ import { create } from "xmlbuilder2";
 
 export const handler = async () => {
   try {
-    // Specific games you want to track
-    const gameIds = [
-      "497057",      // Destiny 2
-      "515025",      // Overwatch 2
-      "2125397111",  // Marvel Rivals
-      "32399",       // Counter-Strike 2
-      "323583"       // Marathon
-    ];
+    const url = "https://api.twitch.tv/helix/drops/campaigns";
 
-    let allCampaigns = [];
-
-    // Fetch campaigns for each game
-    for (const gameId of gameIds) {
-      const url = `https://api.twitch.tv/helix/drops/campaigns?game_id=${gameId}`;
-
-      const response = await fetch(url, {
-        headers: {
-          "Client-ID": process.env.TWITCH_CLIENT_ID,
-          "Authorization": `Bearer ${process.env.TWITCH_OAUTH_TOKEN}`
-        }
-      });
-
-      if (!response.ok) {
-        console.error(`Twitch API error for game ${gameId}:`, await response.text());
-        continue;
+    const response = await fetch(url, {
+      headers: {
+        "Client-ID": process.env.TWITCH_CLIENT_ID,
+        "Authorization": `Bearer ${process.env.TWITCH_OAUTH_TOKEN}`
       }
+    });
 
-      const data = await response.json();
-
-      if (data.data && Array.isArray(data.data)) {
-        allCampaigns = allCampaigns.concat(data.data);
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Twitch API error:", errorText);
+      return {
+        statusCode: response.status,
+        body: `Twitch API error: ${errorText}`
+      };
     }
 
-    // Build RSS XML
+    const data = await response.json();
+    let campaigns = data.data || [];
+
+    // Alphabetical sort by game name
+    campaigns.sort((a, b) => {
+      const nameA = (a.game?.display_name || "").toLowerCase();
+      const nameB = (b.game?.display_name || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
     const feed = {
       rss: {
         "@version": "2.0",
         channel: {
-          title: "Active Twitch Drops (Specific Games)",
+          title: "Active Twitch Drops (All Games, Alphabetical)",
           link: "https://www.twitch.tv/drops",
-          description: "Live Twitch Drops campaigns for selected games.",
-          item: allCampaigns.map((campaign) => ({
-            title: campaign.name || "Unnamed Campaign",
+          description: "Live Twitch Drops campaigns across all games, sorted alphabetically.",
+          item: campaigns.map((campaign) => ({
+            title: `${campaign.game?.display_name || "Unknown Game"} — ${campaign.name || "Unnamed Campaign"}`,
             description: campaign.description || "No description available.",
             link: campaign.details_url || "https://www.twitch.tv/drops",
             pubDate: campaign.start_at || new Date().toUTCString()
